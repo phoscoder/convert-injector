@@ -23,14 +23,11 @@ Your application code doesn't change. It keeps reading `process.env` (or `os.env
 
 ```mermaid
 flowchart LR
-    A[secrets-inject run] -->|read-only role, 5s timeout| B[(Postgres<br/>secrets schema)]
-    B -->|encrypted rows| A
-    A -->|decrypt with SECRETS_KEY| C{secrets}
-    C -->|write| D[(encrypted cache<br/>0600 file)]
-    B -. unreachable .-> D
-    D -. fallback .-> C
-    C -->|exec, same PID| E[your app<br/>env vars set]
+    DB[(Postgres)] --> RUN[secrets-inject] --> APP[your app]
+    CACHE[(Encrypted cache)] -.-> RUN
 ```
+
+Postgres is the source of truth. `secrets-inject` decrypts the values, saves them to the encrypted cache, and starts your app with them as env vars. The cache is only read when Postgres is unreachable.
 
 `run`, in order:
 
