@@ -1,8 +1,8 @@
-# secrets-inject
+# 💉 Convert Injector
 
 **Encrypted secrets from the Postgres you already run, injected as environment variables.**
 
-`secrets-inject` is a small Rust CLI. Your secrets live encrypted in a `secrets` schema in Postgres; each service starts with `secrets-inject run -- <your command>` and receives them as plain env vars. No `.env` files, no new infrastructure, and if Postgres is down your service still boots from an encrypted cache of the last good fetch.
+**Convert Injector** (the `secrets-inject` CLI) is a small Rust CLI. Your secrets live encrypted in a `secrets` schema in Postgres; each service starts with `secrets-inject run -- <your command>` and receives them as plain env vars. No `.env` files, no new infrastructure, and if Postgres is down your service still boots from an encrypted cache of the last good fetch.
 
 ```console
 $ secrets-inject run --system backend --env production -- node dist/server.js
@@ -44,7 +44,7 @@ Only two values live outside the database on each host: `SECRETS_DB_URL` and `SE
 Requires Rust 1.94+ (sqlx 0.9) and Postgres 12+. Linux or macOS only: `run` uses Unix `exec` (WSL is fine).
 
 ```bash
-git clone <this repo> && cd secrets-inject
+git clone https://github.com/phoscoder/convert-injector.git && cd convert-injector
 cargo build --release
 sudo install target/release/secrets-inject /usr/local/bin/
 ```
