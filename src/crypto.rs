@@ -94,4 +94,41 @@ mod tests {
         assert_eq!(key.0, again.0);
         assert!(SecretKey::from_hex("abcd").is_err());
     }
+
+    #[test]
+    fn nonces_are_random_so_ciphertexts_differ() {
+        let key = SecretKey::generate();
+        assert_ne!(key.encrypt(b"x", b"a"), key.encrypt(b"x", b"a"));
+    }
+
+    #[test]
+    fn tampering_and_short_input_are_rejected() {
+        let key = SecretKey::generate();
+        let mut ct = key.encrypt(b"hunter2", b"a");
+        *ct.last_mut().unwrap() ^= 1;
+        assert!(key.decrypt(&ct, b"a").is_err());
+        assert!(key.decrypt(&[0u8; 10], b"a").is_err());
+    }
+
+    #[test]
+    fn empty_plaintext_round_trips() {
+        let key = SecretKey::generate();
+        assert!(key.decrypt(&key.encrypt(b"", b"a"), b"a").unwrap().is_empty());
+    }
+
+    #[test]
+    fn derived_keys_differ_by_context_and_from_parent() {
+        let key = SecretKey::generate();
+        assert_ne!(key.derive("one").0, key.derive("two").0);
+        assert_ne!(key.derive("one").0, key.0);
+        assert_eq!(key.derive("one").0, key.derive("one").0);
+    }
+
+    #[test]
+    fn from_hex_rejects_bad_input() {
+        assert!(SecretKey::from_hex("zz").is_err());
+        assert!(SecretKey::from_hex(&"ab".repeat(33)).is_err());
+        let hex = "ab".repeat(32);
+        assert_eq!(SecretKey::from_hex(&format!(" {hex}\n")).unwrap().to_hex(), hex);
+    }
 }
