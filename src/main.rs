@@ -342,3 +342,55 @@ fn human(secs: u64) -> String {
         _ => format!("{}d {}h", secs / 86400, secs % 86400 / 3600),
     }
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn valid_names() {
+        for n in ["A", "_X", "STRIPE_SECRET_KEY", "NEXT_PUBLIC_URL_2"] {
+            assert!(validate_name(n).is_ok(), "{n}");
+        }
+    }
+
+    #[test]
+    fn invalid_names() {
+        for n in ["", "lower", "Mixed", "1ABC", "A-B", "A B", "A=B", "ÄB"] {
+            assert!(validate_name(n).is_err(), "{n}");
+        }
+    }
+
+    #[test]
+    fn aad_binds_env_and_key() {
+        assert_eq!(aad("production", "DB"), b"production/DB");
+    }
+
+    #[test]
+    fn human_durations() {
+        assert_eq!(human(0), "0s");
+        assert_eq!(human(59), "59s");
+        assert_eq!(human(60), "1m");
+        assert_eq!(human(3599), "59m");
+        assert_eq!(human(3600), "1h 0m");
+        assert_eq!(human(3 * 3600 + 120), "3h 2m");
+        assert_eq!(human(86400), "1d 0h");
+        assert_eq!(human(90000), "1d 1h");
+    }
+
+    #[test]
+    fn exec_failure_reports_command() {
+        let err = exec(&["/nonexistent/definitely-not-here".into()], BTreeMap::new());
+        assert!(format!("{err:#}").contains("could not start"));
+    }
+
+    #[test]
+    fn cli_parses() {
+        use clap::CommandFactory;
+        Cli::command().debug_assert();
+        assert!(Cli::try_parse_from(["x", "set", "K", "--env", "e"]).is_err(), "scope required");
+        assert!(Cli::try_parse_from(["x", "set", "K", "--env", "e", "--shared", "--system", "s"]).is_err());
+        assert!(Cli::try_parse_from(["x", "set", "K", "--env", "e", "--shared"]).is_ok());
+        assert!(Cli::try_parse_from(["x", "run", "--system", "s", "--env", "e"]).is_err(), "command required");
+        assert!(Cli::try_parse_from(["x", "run", "--system", "s", "--env", "e", "--", "true"]).is_ok());
+    }
+}
