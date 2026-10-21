@@ -1,5 +1,5 @@
 [package]
-name = "secrets-inject"
+name = "co-injector"
 version = "0.1.0"
 edition = "2024"
 

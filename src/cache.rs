@@ -64,12 +64,12 @@ fn now() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
 
-/// SECRETS_CACHE_DIR, else ~/.cache/secrets-inject, else /var/cache/secrets-inject.
+/// SECRETS_CACHE_DIR, else ~/.cache/co-injector, else /var/cache/co-injector.
 pub fn default_dir() -> PathBuf {
     if let Some(home) = std::env::var_os("HOME") {
-        return Path::new(&home).join(".cache/secrets-inject");
+        return Path::new(&home).join(".cache/co-injector");
     }
-    PathBuf::from("/var/cache/secrets-inject")
+    PathBuf::from("/var/cache/co-injector")
 }
 #[cfg(test)]
 mod tests {
@@ -78,7 +78,7 @@ mod tests {
 
     fn temp_dir() -> PathBuf {
         static N: AtomicU32 = AtomicU32::new(0);
-        let dir = std::env::temp_dir().join(format!("secrets-inject-test-{}-{}", std::process::id(), N.fetch_add(1, Ordering::SeqCst)));
+        let dir = std::env::temp_dir().join(format!("co-injector-test-{}-{}", std::process::id(), N.fetch_add(1, Ordering::SeqCst)));
         let _ = fs::remove_dir_all(&dir);
         dir
     }

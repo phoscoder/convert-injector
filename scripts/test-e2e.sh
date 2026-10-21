@@ -6,7 +6,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 PG_VERSION="${PG_VERSION:-16}"
-NAME="secrets-inject-e2e-$$"
+NAME="co-injector-e2e-$$"
 
 docker run -d --rm --name "$NAME" \
   -e POSTGRES_PASSWORD=postgres -p 127.0.0.1::5432 \

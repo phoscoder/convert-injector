@@ -1,4 +1,4 @@
--- secrets-inject: schema, tables and roles.
+-- co-injector: schema, tables and roles.
 -- Run once per database, as a superuser (or a role with CREATEROLE that can SET ROLE):
 --   psql "$ADMIN_DATABASE_URL" -f migrations/001_secrets.sql
 

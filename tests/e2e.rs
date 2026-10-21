@@ -17,7 +17,7 @@ use std::time::Instant;
 use sqlx::postgres::PgConnectOptions;
 use sqlx::{AssertSqlSafe, ConnectOptions, Connection, PgConnection, Row};
 
-const BIN: &str = env!("CARGO_BIN_EXE_secrets-inject");
+const BIN: &str = env!("CARGO_BIN_EXE_co-injector");
 const DB: &str = "secrets_e2e";
 
 struct Fixture {
@@ -118,7 +118,7 @@ impl Env {
             let mut c = PgConnection::connect(&fx.admin_url).await.unwrap();
             sqlx::query("INSERT INTO secrets.environments (name) VALUES ($1)").bind(&name).execute(&mut c).await.unwrap();
         });
-        let cache_dir = std::env::temp_dir().join(format!("secrets-inject-e2e-{}-{n}", std::process::id()));
+        let cache_dir = std::env::temp_dir().join(format!("co-injector-e2e-{}-{n}", std::process::id()));
         let _ = std::fs::remove_dir_all(&cache_dir);
         let key = keygen();
         Self { fx, name, key, cache_dir }

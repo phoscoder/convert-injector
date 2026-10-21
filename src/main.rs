@@ -16,7 +16,7 @@ use crate::cache::Cache;
 use crate::crypto::SecretKey;
 
 #[derive(Parser)]
-#[command(name = "secrets-inject", version, about = "Encrypted secrets from Postgres, injected as environment variables")]
+#[command(name = "co-injector", version, about = "Encrypted secrets from Postgres, injected as environment variables")]
 struct Cli {
     #[command(subcommand)]
     command: Cmd,
@@ -117,7 +117,7 @@ async fn main() {
         Cmd::List(args) => list(args).await,
     };
     if let Err(e) = result {
-        eprintln!("secrets-inject: error: {e:#}");
+        eprintln!("co-injector: error: {e:#}");
         std::process::exit(1);
     }
 }
@@ -143,9 +143,9 @@ async fn run(args: RunArgs) -> Result<()> {
             if let Some(cache) = &cache
                 && let Err(e) = cache.write(&secrets)
             {
-                eprintln!("secrets-inject: warning: could not write cache: {e:#}");
+                eprintln!("co-injector: warning: could not write cache: {e:#}");
             }
-            eprintln!("secrets-inject: loaded {} secrets for {}/{}", secrets.len(), args.system, args.env);
+            eprintln!("co-injector: loaded {} secrets for {}/{}", secrets.len(), args.system, args.env);
             secrets
         }
         Err(FetchError::Config(e)) => return Err(e),
@@ -153,11 +153,11 @@ async fn run(args: RunArgs) -> Result<()> {
             let Some(cache) = &cache else {
                 return Err(e.context("database unavailable and --no-cache is set"));
             };
-            eprintln!("secrets-inject: warning: database unavailable ({e:#}); trying cache");
+            eprintln!("co-injector: warning: database unavailable ({e:#}); trying cache");
             let (secrets, age) = cache
                 .read()
                 .map_err(|cache_err| anyhow!("{e:#}; no usable cache either: {cache_err:#}"))?;
-            eprintln!("secrets-inject: loaded {} secrets from a cache {} old", secrets.len(), human(age));
+            eprintln!("co-injector: loaded {} secrets from a cache {} old", secrets.len(), human(age));
             secrets
         }
     };
@@ -317,7 +317,7 @@ fn validate_name(name: &str) -> Result<()> {
     Ok(())
 }
 
-/// Prompt without echo on a terminal; otherwise read stdin (so `cat key.pem | secrets-inject set ...` works).
+/// Prompt without echo on a terminal; otherwise read stdin (so `cat key.pem | co-injector set ...` works).
 fn read_value(name: &str) -> Result<String> {
     let value = if std::io::stdin().is_terminal() {
         rpassword::prompt_password(format!("Value for {name}: "))?

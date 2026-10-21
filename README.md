@@ -2,11 +2,11 @@
 
 **Encrypted secrets from the Postgres you already run, injected as environment variables.**
 
-**Convert Injector** (the `secrets-inject` CLI) is a small Rust CLI. Your secrets live encrypted in a `secrets` schema in Postgres; each service starts with `secrets-inject run -- <your command>` and receives them as plain env vars. No `.env` files, no new infrastructure, and if Postgres is down your service still boots from an encrypted cache of the last good fetch.
+**Convert Injector** (the `co-injector` CLI) is a small Rust CLI. Your secrets live encrypted in a `secrets` schema in Postgres; each service starts with `co-injector run -- <your command>` and receives them as plain env vars. No `.env` files, no new infrastructure, and if Postgres is down your service still boots from an encrypted cache of the last good fetch.
 
 ```console
-$ secrets-inject run --system backend --env production -- node dist/server.js
-secrets-inject: loaded 12 secrets for backend/production
+$ co-injector run --system backend --env production -- node dist/server.js
+co-injector: loaded 12 secrets for backend/production
 ```
 
 Your application code doesn't change. It keeps reading `process.env` (or `os.environ`, or `std::env`).
@@ -23,11 +23,11 @@ Your application code doesn't change. It keeps reading `process.env` (or `os.env
 
 ```mermaid
 flowchart LR
-    DB[(Postgres)] --> RUN[secrets-inject] --> APP[your app]
+    DB[(Postgres)] --> RUN[co-injector] --> APP[your app]
     CACHE[(Encrypted cache)] -.-> RUN
 ```
 
-Postgres is the source of truth. `secrets-inject` decrypts the values, saves them to the encrypted cache, and starts your app with them as env vars. The cache is only read when Postgres is unreachable.
+Postgres is the source of truth. `co-injector` decrypts the values, saves them to the encrypted cache, and starts your app with them as env vars. The cache is only read when Postgres is unreachable.
 
 `run`, in order:
 
@@ -46,7 +46,7 @@ Requires Rust 1.94+ (sqlx 0.9) and Postgres 12+. Linux or macOS only: `run` uses
 ```bash
 git clone https://github.com/phoscoder/convert-injector.git && cd convert-injector
 cargo build --release
-sudo install target/release/secrets-inject /usr/local/bin/
+sudo install target/release/co-injector /usr/local/bin/
 ```
 
 ## Quick start
@@ -83,7 +83,7 @@ Run the migration as an admin, **not** through your app's migration tool: that u
 ### 2. Generate a key per environment
 
 ```bash
-secrets-inject keygen   # run once each for development, staging, production
+co-injector keygen   # run once each for development, staging, production
 # 3f9c...e21a  (64 hex characters)
 ```
 
@@ -97,19 +97,19 @@ read -rsp "SECRETS_DB_URL: " SECRETS_DB_URL && export SECRETS_DB_URL && echo
 # paste: postgres://secrets_writer:PASSWORD@your-db-host:5432/app?sslmode=require
 
 # Shared by every system (prompts for the value, hidden as you type)
-secrets-inject set DATABASE_URL --shared --env production
+co-injector set DATABASE_URL --shared --env production
 
 # Only for one system
-secrets-inject set STRIPE_SECRET_KEY --system backend --env production --description "Stripe live key"
+co-injector set STRIPE_SECRET_KEY --system backend --env production --description "Stripe live key"
 
 # Override a shared value for one system
-secrets-inject set REDIS_URL --system worker --env production
+co-injector set REDIS_URL --system worker --env production
 
 # Public: safe to bake into the frontend bundle
-echo "https://example.com" | secrets-inject set NEXT_PUBLIC_APP_URL --system frontend --env production --public
+echo "https://example.com" | co-injector set NEXT_PUBLIC_APP_URL --system frontend --env production --public
 
 # From a file (multi-line values like PEM keys are kept intact)
-secrets-inject set JWT_PRIVATE_KEY --system backend --env production < jwt.pem
+co-injector set JWT_PRIVATE_KEY --system backend --env production < jwt.pem
 ```
 
 Values are read from a hidden prompt or stdin, never from an argument, so they stay out of shell history and `ps`. To change a value, run `set` again (pass `--public` again if it should stay public; omitting it makes the secret private).
@@ -119,7 +119,7 @@ Values are read from a hidden prompt or stdin, never from an argument, so they s
 On each host set `SECRETS_DB_URL` (the **reader** URL) and that environment's `SECRETS_KEY`, then:
 
 ```bash
-secrets-inject run --system backend --env production -- node dist/server.js
+co-injector run --system backend --env production -- node dist/server.js
 ```
 
 ## Commands
@@ -133,7 +133,7 @@ secrets-inject run --system backend --env production -- node dist/server.js
 | `run --system S --env E [--public-only] [--no-cache] [--cache-dir D] -- CMD...` | Every service, at startup | Fetches, decrypts, caches, then `exec`s your command |
 
 ```console
-$ secrets-inject list --env production
+$ co-injector list --env production
 KEY                  SCOPE       PUBLIC  UPDATED           BY
 DATABASE_URL         shared              2026-10-19 11:09  victor
 NEXT_PUBLIC_APP_URL  frontend    yes     2026-10-19 11:09  victor
@@ -144,7 +144,7 @@ STRIPE_SECRET_KEY    backend             2026-10-19 11:09  victor
 
 With `--system`, `list` shows exactly what that system receives, including the shared values it inherits.
 
-Environment variables: `SECRETS_DB_URL`, `SECRETS_KEY` (required), `SECRETS_CACHE_DIR` (default `~/.cache/secrets-inject`), `SECRETS_USER` (recorded as `updated_by`, defaults to `$USER`).
+Environment variables: `SECRETS_DB_URL`, `SECRETS_KEY` (required), `SECRETS_CACHE_DIR` (default `~/.cache/co-injector`), `SECRETS_USER` (recorded as `updated_by`, defaults to `$USER`).
 
 Names must be `UPPER_SNAKE_CASE`, enforced by the CLI and by a `CHECK` constraint on the table.
 
@@ -187,7 +187,7 @@ The cache protects against stray copies (backups, disk snapshots, someone browsi
 
 ## Deploying
 
-Every service starts the same way: `secrets-inject run --system <name> --env <env> -- <your usual start command>`.
+Every service starts the same way: `co-injector run --system <name> --env <env> -- <your usual start command>`.
 
 ### Importing an existing `.env`
 
@@ -197,7 +197,7 @@ Skips comments and empty values, strips `export` and surrounding quotes, keeps v
 grep -E '^(export )?[A-Z_][A-Z0-9_]*=.+' .env.production | sed 's/^export //' | while IFS= read -r line; do
   k="${line%%=*}"; v="${line#*=}"
   v="${v#\"}"; v="${v%\"}"; v="${v#\'}"; v="${v%\'}"
-  printf '%s' "$v" | secrets-inject set "$k" --system backend --env production
+  printf '%s' "$v" | co-injector set "$k" --system backend --env production
 done
 ```
 
@@ -206,21 +206,21 @@ done
 Build the binary in a separate stage. The Rust stage must use the same C library as your app image (Debian-based `node:22-bookworm-slim` pairs with `rust:1-bookworm`; for Alpine use `rust:1-alpine`).
 
 ```dockerfile
-FROM rust:1-bookworm AS secrets-inject
+FROM rust:1-bookworm AS co-injector
 WORKDIR /src
-COPY secrets-inject/ .
+COPY co-injector/ .
 RUN cargo build --release
 
 FROM node:22-bookworm-slim
-COPY --from=secrets-inject /src/target/release/secrets-inject /usr/local/bin/secrets-inject
+COPY --from=co-injector /src/target/release/co-injector /usr/local/bin/co-injector
 WORKDIR /app
 # ... your usual COPY / npm ci / npm run build steps ...
 
-ENV SECRETS_CACHE_DIR=/var/cache/secrets-inject
-RUN mkdir -p /var/cache/secrets-inject && chown node:node /var/cache/secrets-inject
+ENV SECRETS_CACHE_DIR=/var/cache/co-injector
+RUN mkdir -p /var/cache/co-injector && chown node:node /var/cache/co-injector
 USER node
 
-CMD ["secrets-inject", "run", "--system", "backend", "--env", "production", "--", "node", "dist/server.js"]
+CMD ["co-injector", "run", "--system", "backend", "--env", "production", "--", "node", "dist/server.js"]
 ```
 
 In Compose, mount a cache volume per service or the cache is lost whenever a container is recreated:
@@ -234,15 +234,15 @@ services:
       - SECRETS_DB_URL   # passed through from the host, never written here
       - SECRETS_KEY
     volumes:
-      - secrets-cache-backend:/var/cache/secrets-inject
+      - secrets-cache-backend:/var/cache/co-injector
 
   worker:
     image: myapp
     init: true
-    command: ["secrets-inject", "run", "--system", "worker", "--env", "production", "--", "node", "dist/worker.js"]
+    command: ["co-injector", "run", "--system", "worker", "--env", "production", "--", "node", "dist/worker.js"]
     environment: [SECRETS_DB_URL, SECRETS_KEY]
     volumes:
-      - secrets-cache-worker:/var/cache/secrets-inject
+      - secrets-cache-worker:/var/cache/co-injector
 
 volumes:
   secrets-cache-backend:
@@ -252,9 +252,9 @@ volumes:
 ### systemd
 
 ```bash
-sudo install -d -m 700 /etc/secrets-inject
-sudo install -m 600 /dev/null /etc/secrets-inject/production.env
-sudo nano /etc/secrets-inject/production.env
+sudo install -d -m 700 /etc/co-injector
+sudo install -m 600 /dev/null /etc/co-injector/production.env
+sudo nano /etc/co-injector/production.env
 # SECRETS_DB_URL=postgres://secrets_reader:PASSWORD@db-host:5432/app?sslmode=require
 # SECRETS_KEY=<the production key>
 ```
@@ -267,10 +267,10 @@ After=network-online.target
 
 [Service]
 User=app
-EnvironmentFile=/etc/secrets-inject/production.env
+EnvironmentFile=/etc/co-injector/production.env
 CacheDirectory=backend
 Environment=SECRETS_CACHE_DIR=/var/cache/backend
-ExecStart=/usr/local/bin/secrets-inject run --system backend --env production -- /usr/bin/node /srv/app/dist/server.js
+ExecStart=/usr/local/bin/co-injector run --system backend --env production -- /usr/bin/node /srv/app/dist/server.js
 Restart=on-failure
 
 [Install]
@@ -286,8 +286,8 @@ Each developer puts the **development** reader URL and key in their shell profil
 ```json
 {
   "scripts": {
-    "dev": "secrets-inject run --system backend --env development -- tsx watch src/index.ts",
-    "dev:worker": "secrets-inject run --system worker --env development -- tsx watch src/worker.ts"
+    "dev": "co-injector run --system backend --env development -- tsx watch src/index.ts",
+    "dev:worker": "co-injector run --system worker --env development -- tsx watch src/worker.ts"
   }
 }
 ```
@@ -297,13 +297,13 @@ Each developer puts the **development** reader URL and key in their shell profil
 Public values are baked into the JavaScript bundle at build time, so wrap the build with `--public-only`. Only rows marked `--public` are loaded, so a backend secret can't reach browser code even if someone mistypes a name:
 
 ```bash
-secrets-inject run --system frontend --env production --public-only -- npm run build
+co-injector run --system frontend --env production --public-only -- npm run build
 ```
 
 For Next.js with server-side code that needs private secrets, start the server **without** `--public-only`:
 
 ```bash
-secrets-inject run --system frontend --env production -- npm start
+co-injector run --system frontend --env production -- npm start
 ```
 
 Wherever the build runs (CI included) must be able to reach Postgres.
@@ -331,7 +331,7 @@ To run the e2e tests against your own server, set `SECRETS_TEST_ADMIN_URL` to a 
 ## Project layout
 
 ```
-secrets-inject/
+convert-injector/
 ├── migrations/001_secrets.sql   # schema, tables, roles
 ├── src/
 │   ├── main.rs                  # CLI and commands

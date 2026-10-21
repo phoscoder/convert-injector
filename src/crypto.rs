@@ -27,7 +27,7 @@ impl SecretKey {
 
     /// Parse the 64-character hex form used in `SECRETS_KEY`.
     pub fn from_hex(s: &str) -> Result<Self> {
-        let raw = hex::decode(s.trim()).context("SECRETS_KEY must be hex (run `secrets-inject keygen`)")?;
+        let raw = hex::decode(s.trim()).context("SECRETS_KEY must be hex (run `co-injector keygen`)")?;
         let bytes: [u8; KEY_LEN] = raw
             .try_into()
             .map_err(|_| anyhow!("SECRETS_KEY must be 64 hex characters (32 bytes)"))?;
