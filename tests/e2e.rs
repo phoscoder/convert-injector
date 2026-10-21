@@ -48,7 +48,8 @@ async fn setup(admin_url: &str) -> Fixture {
     let mut conn = opts.clone().connect().await.expect("connect as admin");
 
     for sql in [
-        format!("DROP DATABASE IF EXISTS {DB} WITH (FORCE)"),
+        format!("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{DB}'"),
+        format!("DROP DATABASE IF EXISTS {DB}"),
         format!("CREATE DATABASE {DB}"),
     ] {
         sqlx::raw_sql(AssertSqlSafe(sql)).execute(&mut conn).await.unwrap();
